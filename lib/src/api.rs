@@ -5,7 +5,7 @@ use std::time::Duration;
 use futures::{Future};
 use futures::future::{result};
 use serde_json;
-use tokio_core::reactor::{Handle, Timeout};
+use tokio_core::reactor::{Handle, Timeout, Remote};
 
 use telegram_bot_raw::{Request, ResponseWrapper, Response};
 
@@ -20,10 +20,15 @@ pub struct Api {
     inner: Rc<ApiInner>,
 }
 
+enum ApiHandle {
+    Handle,
+    Remote,
+}
+
 struct ApiInner {
     token: String,
     connector: Box<Connector>,
-    handle: Handle,
+    handle: ApiHandle,
 }
 
 #[derive(Debug)]
@@ -43,7 +48,7 @@ impl ConnectorConfig {
         ConnectorConfig::Specified(connector)
     }
 
-    pub fn take(self, handle: &Handle) -> Box<Connector> {
+    pub fn take(self, handle: &ApiHandle) -> Box<Connector> {
         match self {
             ConnectorConfig::Default => default_connector(&handle),
             ConnectorConfig::Specified(connector) => connector
@@ -68,7 +73,7 @@ impl Config {
     }
 
     /// Create new `Api` instance.
-    pub fn build<H: Borrow<Handle>>(self, handle: H) -> Api {
+    pub fn build<H: Borrow<ApiHandle>>(self, handle: H) -> Api {
         let handle = handle.borrow().clone();
         Api {
             inner: Rc::new(ApiInner {
